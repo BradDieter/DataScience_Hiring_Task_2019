@@ -37,7 +37,7 @@ Because this would be extremely unwieldy for a take-home exercise with a target 
    * **confidentiality.payment_records**: Count of the number of payment records breached.  
    * **confidentiality.personal_records**: Count of the number of personal records breached.  
    * **confidentiality.total_record_count**: Count of the total records breached (includes other classes besides the previous three).  
-   * **victim.employee_count**: Number of employees for the victim organization. Small: 1,000 employees or less. Large: 1,000 employees or more. [source](http://veriscommunity.net/enums.html#section-victims)
+   * **victim.employee_count**: Number of employees for the victim organization. Small: 1,000 employees or less. Large: 1,001 employees or more. [source](http://veriscommunity.net/enums.html#section-victims)
    * **victim.state**: Victim organization's state (if country == US) 
    * **victim.country**: Victim organization's country, 2-letter code.  See [code_to_country.json](https://github.com/vz-risk/veris/blob/master/code_to_country.json) for the list of country codes (not required for this exercise).  
    * **victim.victim_id**: Name of the victim organization.  
