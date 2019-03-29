@@ -28,9 +28,9 @@ Because this would be extremely unwieldy for a take-home exercise with a target 
    * **timeline.incident.year**: Year incident occurred.  
    * **actor**: Entities that cause or contribute to an incident. [source](http://veriscommunity.net/actors.html) 
    * **action**: Describe what the threat actor did to cause or contribute to the incident. [source](http://veriscommunity.net/actions.html) 
-   * **attribute.confidentiality**: Was this a confidentiality breach (T/F)? [source](http://veriscommunity.net/attributes.html#section-confidentiality) 
-   * **attribute.integrity**: Was this an integrity incident (T/F)? [source](http://veriscommunity.net/attributes.html#section-integrity)
-   * **attribute.availability**: Was this an availability incident (T/F)? [source](http://veriscommunity.net/attributes.html#section-availability)
+   * **attribute.confidentiality**: Was this a [confidentiality](https://resources.infosecinstitute.com/cia-triad/) breach (T/F)? [source](http://veriscommunity.net/attributes.html#section-confidentiality) 
+   * **attribute.integrity**: Was this an [integrity](https://resources.infosecinstitute.com/cia-triad/) incident (T/F)? [source](http://veriscommunity.net/attributes.html#section-integrity)
+   * **attribute.availability**: Was this an [availability](https://resources.infosecinstitute.com/cia-triad/) incident (T/F)? [source](http://veriscommunity.net/attributes.html#section-availability)
    * **asset**: The information assets that were compromised during the incident. [source](http://veriscommunity.net/assets.html) 
    * **asset.variety**: The variety of the asset that was compromised during the event. Prepended with a single-letter abbreviation of the asset class
    * **confidentiality.medical_records**: Count of the number of medical records breached.  
