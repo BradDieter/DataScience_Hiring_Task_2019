@@ -1,6 +1,6 @@
 # RiskLens Data Science Candidate Task
 
-This is the Data Science candidate take-home tasks for candidates interviewing to join the Data Science team at RiskLens in Spokane, WA.
+This is the Data Science candidate take-home task for candidates interviewing to join the Data Science team at RiskLens in Spokane, WA.
 
 The purpose of this task is to allow the candidate to explore some industry-relevant cybersecurity incident data, and allow for the hiring manager to see a sample of the candidate's work using data that the candidate has probably not seen before.
 
