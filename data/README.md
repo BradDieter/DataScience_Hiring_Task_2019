@@ -19,7 +19,7 @@ Because this would be extremely unwieldy for a take-home exercise with a target 
 
  # Variable Descriptions (Code Book) 
 
- A listing of all the features -- their names and descriptions -- for our modified data set is shown below. Links to additional information is included for the curious, but is not necessary to complete this exercise. 
+ A listing of all the features -- their names and descriptions -- for our modified data set is shown below. Links to additional information are included for the curious, but is not necessary to complete this exercise. 
 
    * **incident_id**: Incident or case ID. Corresponds to the JSON filename in the [VCDB json directory](https://github.com/vz-risk/VCDB/tree/master/data/json/validated). 
    * **timeline.incident.day**:  Day of month incident occurred.  
