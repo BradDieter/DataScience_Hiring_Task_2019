@@ -6,7 +6,7 @@ The purpose of this task is to allow the candidate to explore some industry-rele
 
 ## Instructions
 
-See the [data](./data/) directory for the data set and data description. We are using data from the VERIS Community Database (VCDB) that has been filtered and transformed to be more easily workable in a few hours. The data has been filtered to be only incidents from the medical industry. 
+See the [data](./data/) directory for the data set and data description. We are using data from the VERIS Community Database (VCDB) that has been filtered and transformed to be more easily workable in a few hours. The data has been filtered to be only incidents from the healthcare industry. 
 
 **You should further filter the data to the years 2010-2018 (inclusive of both).**
 

@@ -4,7 +4,7 @@ For this exercise, we have taken [VERIS](https://github.com/vz-risk/veris)-forma
 
 VERIS, the Vocabulary for Event Recording and Incident Sharing, is a common language for describing security incidents in a structured manner. It was invented and is maintained by the Verizon RISK team, and the most current documentation for the entire schema may be [found on GitHub](https://github.com/vz-risk/veris) and at [veriscommunity.net](http://veriscommunity.net/). The VCDB is an open-source data set in VERIS format, also maintained by the Verizon RISK team and several community contributors. The data set is licensed with the Creative Commons Attribution-ShareAlike 4.0 International Public License. Please see the [VCDB License file](https://github.com/vz-risk/VCDB/blob/master/LICENSE.txt) for more information. 
 
-## Modifying the Data
+## How we Modified the Data
 
 As of the writing of this document, the VCDB consists of 8192 incidents, and when parsed with the [verispy](https://github.com/RiskLens/verispy) Python package, has 2330 features (columns). 
 
