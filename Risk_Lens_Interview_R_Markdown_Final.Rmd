@@ -1,0 +1,586 @@
+---
+title: "Risk_Lens_Interview_Project"
+author: "Brad_Dieter_PhD_MS"
+date: "4/9/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Document Description
+
+This document includes the code, output, and interpretation of the analysis conduced on a dataset derived from the VERIS Community Database (VCDB) as outlined in the RiskLens Data Science Candidate Task found at: https://github.com/RiskLens/DataScience_Hiring_Task_2019.
+
+## Executive Summary
+
+**Description of Data**: The exercise involved accessing a currated dataset, provided by RiskLens, that was derived from the VERIS Community Database (VCDB). The dataset contained incidents, when they occured (day, month, and year), the entity that caused the incident, type of action take, the type of breach (confidentiality, integrity, or availability), the type and variety of assets that were compromised, the number of records breached, victim count, and the location of the victims.
+
+**Summary of Findings from Exploratory Analysis**: The number of incidents reported each year ranged from 56 to 395, with the peak ocurring in 2013. Physical attacks were the most common action in 2010, representing 50% of incidence, but declined to represent only 12.5% of incidents by 2018%. Conversely, hacking attacks represented only 4% in 2010 but increased to 29% by 2010. Furthermore, the largest breach which contained 50,000,000 records was the result of a hacking incident in 2016. There were no major changes with regard to the type of actor behind the incidents, with the exception of an atypically large proportion of incidents from internal actors occuring in 2015. Between 2010 and 2018, incidents occuring from user development decreased from 40% to 9%, while incidence from servers and persons increased from 14% to 32% and from 0.5% to 18%, respectively. There was no meaningful change in proportions of confidentiality breaches from 2010 to 2018 (100% to 98%), but there was an increase in the proportion of integrity incidents (3% to 36%) and a decrease in the proportion of availability incidents (68% to 27%). The proportion of incidents that occured from outside the United States decreased increased from 5% in 2010 to 23% in 2018, with a spike at 30% in 2017. There appeared to be a shift in the seasonality of incidents from 2010-2018, with the proportion of incidents in November and December decreasing from 12% in each month to 2% and 0%, respectively; there was an increase in the number of incidents in January from 1% to 12% over the same time frame, suggesting a potential shift in seaasonality of incidents. 
+
+**Summary of Findings from Modeling Analysis**: Assuming a large healthcare employer (1001 employees or larger) and an incident occurs due to an internal actor, it is estimated with 90% confidence that the number of medical records breached falls between 10,867 and 482,810 records, with 234,054 records being the most likely number of medical records breached during a given incident. With regard to total records (inclusive of medical records), it is estimated with 90% confidence that the umber of total records breached during an incident falls between 10,522 and 476,917, with 29,388 records being the most likely number of total records breached during an incident. Initial analysis using a generalized linear model (GLM) found that there  fewer records being obtained with each breach over time (from 2010-2018). There  was a  singular large outlier of a 1,055,489 record breach that occured in 2011; this value was removed from the data set and the GLM was re-ran. The model without the outlier also showed that the number of records breached over time was decreasing. Furthermore, the removal of the outlier improved the model fit substantially, reducing the Akaike information criterion from 13,176,462 to 581,860. However, based on the overall model fit and the magnitude of the decrease over time, the interpretation of the reduction in records breached over time should be interpreted with additional information outside the models parameters. 
+
+##  Exploratory Analysis
+
+### The exploratory analysis portion of the exercise is organized as follows:
+#### Step 1) Load necessary libraries
+#### Step 2) Load the data
+#### Step 3) Filter data based on specified criteria
+#### Step 4) Conduct requested analysis and provide results and interpretation at each step
+#### Step 5) Conduct additional analysis to enrich findings
+
+### Step 1) Load Necessary Libraries
+
+```{r Load Libraries, results=FALSE,warning=FALSE,message=FALSE}
+library(reader)
+library(knitr)
+library(httr)
+library(ggplot2)
+library(kableExtra)
+library(dplyr)
+library(mc2d)
+library(rcompanion)
+  #Libraries for bonus wordle from summary data
+library(RXKCD)
+library(tm)
+library(wordcloud)
+library(RColorBrewer)
+library(tidyverse)
+library(ciTools)
+library(MASS) 
+library(arm)
+```
+
+### Step 2) Load Data
+
+#### Data will be loaded directly from GitHub as to not rely on data residing on local machine
+
+```{r Load Data}
+  VCDB_RAW=read.csv("https://raw.githubusercontent.com/RiskLens/DataScience_Hiring_Task_2019/master/data/vcdb_medical_simplified.csv")
+```
+
+### Step 3) Filter data based on specified criteria.
+#### Set Instructions: You should further filter the data to the years 2010-2018 (inclusive of both)
+
+```{r Filter Data}
+
+  #Filter the data to the years 2010-2018 (inclusive of both).
+  VCDB=subset(VCDB_RAW, timeline.incident.year >= 2010 & timeline.incident.year <= 2018) 
+ 
+   #Visual confirmation of succesful filter
+  ggplot(data=VCDB, aes(x=timeline.incident.year)) +geom_bar(fill = "darkred")          
+
+  
+  #Numerical confirmation of successful filter
+  min(VCDB$timeline.incident.year)
+  max(VCDB$timeline.incident.year)
+```
+
+### Step 4) Complete an exploratory analysis of the data set and answer at least the following questions:
+####  4A) How many total incidents are in the database for each year?
+```{r 4A}
+    #a. How many total incidents are in the database for each year?
+          #Display Graphically Ordered Temporally
+          ggplot(data=VCDB, aes(x=timeline.incident.year)) +geom_bar(fill = "darkred") +geom_text(stat='count', aes(label=..count..), vjust=-1)  
+    #Print Numerical Table
+          incident.by.year.table=table(VCDB$timeline.incident.year)
+          kable(incident.by.year.table) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+    
+```
+
+####  4B)  Grouping by action and year, what are some trends in the action types that you notice over time? Please note that since this is an open source database, the total number of incidents in a given year is more of a function of community involvement in incident reporting than a good representation of the total number of incidents. Given this fact, for your trend analysis it may be better to look at proportions of actions for each action type in a given year rather than total number of incidents for a given action.
+  
+```{r 4B}
+          #Visually graph actions by years
+          ggplot(aes(x = timeline.incident.year ), data = VCDB) + 
+          geom_histogram(aes(fill = action ), binwidth=1, colour="grey20", lwd=0.2) +
+          scale_x_continuous(breaks=seq(0,max(VCDB$timeline.incident.year), 1))
+       
+          #Generate raw numbers
+          action.by.year.table=table(VCDB$timeline.incident.year,VCDB$action)
+           kable(action.by.year.table) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+          
+          #Generate proportions with new dataset
+          action.by.year.table.prop.table=prop.table(table(VCDB$timeline.incident.year,VCDB$action),1) #percentages by row 
+          action.by.year.table.prop.data=as.data.frame(action.by.year.table.prop.table)
+          action.by.year.table.prop.data=action.by.year.table.prop.data %>% rename( year=Var1, action=Var2, proportion=Freq)
+            #Print Proportions Table
+          kable(action.by.year.table.prop.table) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+          
+          #Proportion Visualizations
+              
+              #Proportion bar charts
+              Action.by.year.table.prop.data.bar.chart=ggplot(action.by.year.table.prop.data, aes(x=year, y=proportion, fill=action))+ geom_bar(stat="identity", position = "fill")
+              Action.by.year.table.prop.data.bar.chart
+              
+              #individual line graphs
+              Action.by.year.prop.line.graph<-ggplot(action.by.year.table.prop.data, aes(x=year, y=proportion, group=action)) +
+              geom_line(aes(color=action))+
+              geom_point(aes(color=action))
+              print(Action.by.year.prop.line.graph)
+              
+              #Facet by action to pull apart and visualize
+              Facet.action.by.year.prop.line.graph=Action.by.year.prop.line.graph+facet_wrap(. ~ action,ncol=3)
+              print(Facet.action.by.year.prop.line.graph)
+```
+
+####  4C) Repeat step b but for actor.
+
+```{r 4C}
+          #Visually graph actor by years
+          ggplot(aes(x = timeline.incident.year ), data = VCDB) + 
+          geom_histogram(aes(fill = actor ), binwidth=1, colour="grey20", lwd=0.2) +
+          scale_x_continuous(breaks=seq(0,max(VCDB$timeline.incident.year), 1))
+       
+          #Generate raw numbers
+          actor.by.year.table=table(VCDB$timeline.incident.year,VCDB$actor)
+           kable(actor.by.year.table) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+          
+          #Generate proportions with new dataset
+          actor.by.year.table.prop.table=prop.table(table(VCDB$timeline.incident.year,VCDB$actor),1) #percentages by row 
+          actor.by.year.table.prop.data=as.data.frame(actor.by.year.table.prop.table)
+          actor.by.year.table.prop.data=actor.by.year.table.prop.data %>% rename( year=Var1, actor=Var2, proportion=Freq)
+            #Print Proportions Table
+          kable(actor.by.year.table.prop.table) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+          
+          #Proportion Visualizations
+              
+              #Proportion bar charts
+              actor.by.year.table.prop.data.bar.chart=ggplot(actor.by.year.table.prop.data, aes(x=year, y=proportion, fill=actor))+ geom_bar(stat="identity", position = "fill")
+              actor.by.year.table.prop.data.bar.chart
+              
+              #individual line graphs
+              actor.by.year.prop.line.graph<-ggplot(actor.by.year.table.prop.data, aes(x=year, y=proportion, group=actor)) +
+              geom_line(aes(color=actor))+
+              geom_point(aes(color=actor))
+              print(actor.by.year.prop.line.graph)
+              
+              #Facet by actor to pull apart and visualize
+              Facet.actor.by.year.prop.line.graph=actor.by.year.prop.line.graph+facet_wrap(. ~ actor,ncol=3)
+              print(Facet.actor.by.year.prop.line.graph)
+```
+
+####  4D) Repeat step b but for asset
+
+```{r 4D}
+          #Visually graph asset by years
+          ggplot(aes(x = timeline.incident.year ), data = VCDB) + 
+          geom_histogram(aes(fill = asset ), binwidth=1, colour="grey20", lwd=0.2) +
+          scale_x_continuous(breaks=seq(0,max(VCDB$timeline.incident.year), 1))
+       
+          #Generate raw numbers
+          asset.by.year.table=table(VCDB$timeline.incident.year,VCDB$asset)
+           kable(asset.by.year.table) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+          
+          #Generate proportions with new dataset
+          asset.by.year.table.prop.table=prop.table(table(VCDB$timeline.incident.year,VCDB$asset),1) #percentages by row 
+          asset.by.year.table.prop.data=as.data.frame(asset.by.year.table.prop.table)
+          asset.by.year.table.prop.data=asset.by.year.table.prop.data %>% rename( year=Var1, asset=Var2, proportion=Freq)
+            #Print Proportions Table
+          kable(asset.by.year.table.prop.table) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+          
+          #Proportion Visualizations
+              
+              #Proportion bar charts
+              asset.by.year.table.prop.data.bar.chart=ggplot(asset.by.year.table.prop.data, aes(x=year, y=proportion, fill=asset))+ geom_bar(stat="identity", position = "fill")
+              asset.by.year.table.prop.data.bar.chart
+              
+              #individual line graphs
+              asset.by.year.prop.line.graph<-ggplot(asset.by.year.table.prop.data, aes(x=year, y=proportion, group=asset)) +
+              geom_line(aes(color=asset))+
+              geom_point(aes(color=asset))
+              print(asset.by.year.prop.line.graph)
+              
+              #Facet by asset to pull apart and visualize
+              Facet.asset.by.year.prop.line.graph=asset.by.year.prop.line.graph+facet_wrap(. ~ asset,ncol=3)
+              print(Facet.asset.by.year.prop.line.graph)
+```
+
+####  4E) Repeat step b but for 3 attribute variable
+  
+#####  4E.1) Confidentiality
+  
+```{r 4E.1}
+          #Visually graph attribute.confidentiality by years
+          ggplot(aes(x = timeline.incident.year ), data = VCDB) + 
+          geom_histogram(aes(fill = attribute.confidentiality ), binwidth=1, colour="grey20", lwd=0.2) +
+          scale_x_continuous(breaks=seq(0,max(VCDB$timeline.incident.year), 1))
+       
+          #Generate raw numbers
+          attribute.confidentiality.by.year.table=table(VCDB$timeline.incident.year,VCDB$attribute.confidentiality)
+           kable(attribute.confidentiality.by.year.table) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+          
+          #Generate proportions with new dataset
+          attribute.confidentiality.by.year.table.prop.table=prop.table(table(VCDB$timeline.incident.year,VCDB$attribute.confidentiality),1) #percentages by row 
+          attribute.confidentiality.by.year.table.prop.data=as.data.frame(attribute.confidentiality.by.year.table.prop.table)
+          attribute.confidentiality.by.year.table.prop.data=attribute.confidentiality.by.year.table.prop.data %>% rename( year=Var1, attribute.confidentiality=Var2, proportion=Freq)
+            #Print Proportions Table
+          kable(attribute.confidentiality.by.year.table.prop.table) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+          
+          #Proportion Visualizations
+              
+              #Proportion bar charts
+              attribute.confidentiality.by.year.table.prop.data.bar.chart=ggplot(attribute.confidentiality.by.year.table.prop.data, aes(x=year, y=proportion, fill=attribute.confidentiality))+ geom_bar(stat="identity", position = "fill")
+              attribute.confidentiality.by.year.table.prop.data.bar.chart
+              
+              #individual line graphs
+              attribute.confidentiality.by.year.prop.line.graph<-ggplot(attribute.confidentiality.by.year.table.prop.data, aes(x=year, y=proportion, group=attribute.confidentiality)) +
+              geom_line(aes(color=attribute.confidentiality))+
+              geom_point(aes(color=attribute.confidentiality))
+              print(attribute.confidentiality.by.year.prop.line.graph)
+              
+              #Facet by attribute.confidentiality to pull apart and visualize
+              Facet.attribute.confidentiality.by.year.prop.line.graph=attribute.confidentiality.by.year.prop.line.graph+facet_wrap(. ~ attribute.confidentiality,ncol=3)
+              print(Facet.attribute.confidentiality.by.year.prop.line.graph)  
+```  
+  
+  
+#####  4E.2) Integrity
+  
+```{r 4E.2}
+          #Visually graph attribute.integrity by years
+          ggplot(aes(x = timeline.incident.year ), data = VCDB) + 
+          geom_histogram(aes(fill = attribute.integrity ), binwidth=1, colour="grey20", lwd=0.2) +
+          scale_x_continuous(breaks=seq(0,max(VCDB$timeline.incident.year), 1))
+       
+          #Generate raw numbers
+          attribute.integrity.by.year.table=table(VCDB$timeline.incident.year,VCDB$attribute.integrity)
+           kable(attribute.integrity.by.year.table) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+          
+          #Generate proportions with new dataset
+          attribute.integrity.by.year.table.prop.table=prop.table(table(VCDB$timeline.incident.year,VCDB$attribute.integrity),1) #percentages by row 
+          attribute.integrity.by.year.table.prop.data=as.data.frame(attribute.integrity.by.year.table.prop.table)
+          attribute.integrity.by.year.table.prop.data=attribute.integrity.by.year.table.prop.data %>% rename( year=Var1, attribute.integrity=Var2, proportion=Freq)
+            #Print Proportions Table
+          kable(attribute.integrity.by.year.table.prop.table) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+          
+          #Proportion Visualizations
+              
+              #Proportion bar charts
+              attribute.integrity.by.year.table.prop.data.bar.chart=ggplot(attribute.integrity.by.year.table.prop.data, aes(x=year, y=proportion, fill=attribute.integrity))+ geom_bar(stat="identity", position = "fill")
+              attribute.integrity.by.year.table.prop.data.bar.chart
+              
+              #individual line graphs
+              attribute.integrity.by.year.prop.line.graph<-ggplot(attribute.integrity.by.year.table.prop.data, aes(x=year, y=proportion, group=attribute.integrity)) +
+              geom_line(aes(color=attribute.integrity))+
+              geom_point(aes(color=attribute.integrity))
+              print(attribute.integrity.by.year.prop.line.graph)
+              
+              #Facet by attribute.integrity to pull apart and visualize
+              Facet.attribute.integrity.by.year.prop.line.graph=attribute.integrity.by.year.prop.line.graph+facet_wrap(. ~ attribute.integrity,ncol=3)
+              print(Facet.attribute.integrity.by.year.prop.line.graph)
+```
+  
+  
+#####  4E.3) Availability
+  
+```{r 4E.3}
+          #Visually graph attribute.availability by years
+          ggplot(aes(x = timeline.incident.year ), data = VCDB) + 
+          geom_histogram(aes(fill = attribute.availability ), binwidth=1, colour="grey20", lwd=0.2) +
+          scale_x_continuous(breaks=seq(0,max(VCDB$timeline.incident.year), 1))
+       
+          #Generate raw numbers
+          attribute.availability.by.year.table=table(VCDB$timeline.incident.year,VCDB$attribute.availability)
+           kable(attribute.availability.by.year.table) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+          
+          #Generate proportions with new dataset
+          attribute.availability.by.year.table.prop.table=prop.table(table(VCDB$timeline.incident.year,VCDB$attribute.availability),1) #percentages by row 
+          attribute.availability.by.year.table.prop.data=as.data.frame(attribute.availability.by.year.table.prop.table)
+          attribute.availability.by.year.table.prop.data=attribute.availability.by.year.table.prop.data %>% rename( year=Var1, attribute.availability=Var2, proportion=Freq)
+            #Print Proportions Table
+          kable(attribute.availability.by.year.table.prop.table) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+          
+          #Proportion Visualizations
+              
+              #Proportion bar charts
+              attribute.availability.by.year.table.prop.data.bar.chart=ggplot(attribute.availability.by.year.table.prop.data, aes(x=year, y=proportion, fill=attribute.availability))+ geom_bar(stat="identity", position = "fill")
+              attribute.availability.by.year.table.prop.data.bar.chart
+              
+              #individual line graphs
+              attribute.availability.by.year.prop.line.graph<-ggplot(attribute.availability.by.year.table.prop.data, aes(x=year, y=proportion, group=attribute.availability)) +
+              geom_line(aes(color=attribute.availability))+
+              geom_point(aes(color=attribute.availability))
+              print(attribute.availability.by.year.prop.line.graph)
+              
+              #Facet by attribute.availability to pull apart and visualize
+              Facet.attribute.availability.by.year.prop.line.graph=attribute.availability.by.year.prop.line.graph+facet_wrap(. ~ attribute.availability,ncol=3)
+              print(Facet.attribute.availability.by.year.prop.line.graph)
+```
+
+
+   
+#### 4F) Do we see a trend for the proportion of incidents within the US versus outside of the US?
+  
+
+```{r 4F}
+          #Create new variable marking inside or outside US
+          VCDB$US_BOOLEAN=ifelse(VCDB$victim.country=="US", "US", "NON_US")
+         
+          #Visually graph asset by years
+          ggplot(aes(x = timeline.incident.year ), data = VCDB) + 
+          geom_histogram(aes(fill = US_BOOLEAN ), binwidth=1, colour="grey20", lwd=0.2) +
+          scale_x_continuous(breaks=seq(0,max(VCDB$timeline.incident.year), 1))
+       
+          #Generate raw numbers
+          victim.country.by.year.table=table(VCDB$timeline.incident.year,VCDB$US_BOOLEAN)
+          print(victim.country.by.year.table)
+          
+          #Generate proportions with new dataset
+          victim.country.by.year.table.prop.table=prop.table(table(VCDB$timeline.incident.year,VCDB$US_BOOLEAN),1) #percentages by row
+          victim.country.by.year.table.prop.data=as.data.frame(victim.country.by.year.table.prop.table)
+          victim.country.by.year.table.prop.data=victim.country.by.year.table.prop.data %>% rename(year=Var1, victim.country=Var2, proportion=Freq)
+          
+          kable(victim.country.by.year.table.prop.data) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+          
+          #Proportion Visualizations
+          
+          #Proportion bar charts
+          victim.country.by.year.table.prop.data.bar.chart=ggplot(victim.country.by.year.table.prop.data, aes(x=year, y=proportion, fill=victim.country)) + geom_bar(stat="identity", 
+          position = "fill")
+          victim.country.by.year.table.prop.data.bar.chart
+          
+          #individual line graphs
+          victim.country.by.year.prop.line.graph<-ggplot(victim.country.by.year.table.prop.data, aes(x=year, y=proportion, group=victim.country)) +
+            geom_line(aes(color=victim.country))+
+            geom_point(aes(color=victim.country))
+          print(victim.country.by.year.prop.line.graph)
+          
+          #Facet by victim.country to pull apart and visualize
+          Facet.victim.country.by.year.prop.line.graph=victim.country.by.year.prop.line.graph+facet_wrap(. ~ victim.country,ncol=3)
+          print(Facet.victim.country.by.year.prop.line.graph)
+```
+
+#### 4G) Please feel free to share any other notable findings as you explore the data?
+
+```{r 4G Exploratory Findings Examining Seasonality and Amount of Records by Action}
+
+#Explore temporal nature within year by month to look for seasonality  (all data)
+          #Display Graphically Ordered Temporally
+          ggplot(data=VCDB, aes(x=timeline.incident.month)) +geom_bar(fill = "darkred") +geom_text(stat='count', aes(label=..count..), vjust=-1)  
+    #Print Numerical Table
+          incident.by.month.table=table(VCDB$timeline.incident.month)
+          kable(incident.by.month.table) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+          
+     #Generate proportions with new dataset
+          victim.month.by.year.table.prop.table=prop.table(table(VCDB$timeline.incident.year,VCDB$timeline.incident.month),1)   #percentages by row
+          victim.month.by.year.table.prop.data=as.data.frame(victim.month.by.year.table.prop.table)
+          victim.month.by.year.table.prop.data=victim.month.by.year.table.prop.data %>% rename(year=Var1, timeline.incident.month=Var2, proportion=Freq)
+          
+          kable(victim.month.by.year.table.prop.data) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+          
+          #Proportion Visualizations
+          
+          #Proportion bar charts
+          victim.month.by.year.table.prop.data.bar.chart=ggplot(victim.month.by.year.table.prop.data, aes(x=year, y=proportion, fill=timeline.incident.month)) + geom_bar(stat="identity", 
+          position = "fill")
+          victim.month.by.year.table.prop.data.bar.chart
+          
+#Explore relationship between type of action and amount of records breached
+          
+          #Display Graphically with quick box plot
+          
+  records.by.action <- ggplot(VCDB, aes(action, confidentiality.total_record_count, color=action )) +
+  stat_boxplot(fill = NA) +
+  labs(subtitle = "Plot of Total Record Count by Action Class")
+  records.by.action
+
+
+```
+
+
+
+## Modeling Questions
+
+Let's assume that you work for a large healthcare employer (1001 employees or larger), and you are scoping a risk scenario where you are worried about an insider threat (actor: internal) compromising the confidentiality of medical records. Assuming that you will have a cybersecurity incident this year, based on the data you have can you come up with a model that will estimate, with 90% confidence, the range of the counts of medical records that will be compromised in such an incident (minimum and maximum)? Within that 90% confidence interval, what is the most likely count of the breached records? You may ignore those employers with unknown employee counts for the sake of time. Bonus points if you integrate the year of breach into your model -- are the trends changing?
+
+```{r Modeling Questions}
+#Subset data to include only insider threats (actor:interal). 
+Internal.actor.data=subset(VCDB, actor=="internal" & victim.employee_count %in% c("1001 to 10000","10001 to 25000", "250001 to 50000", "50001 to 100000","over 100000", "large"))
+
+  #Visual Check
+  ggplot(aes(x = timeline.incident.year ), data = Internal.actor.data) + 
+  geom_histogram(aes(fill = victim.employee_count ), binwidth=1, colour="darkred", lwd=0.2)  
+  scale_x_continuous(breaks=seq(0,max(VCDB$timeline.incident.year), 1))
+  
+  #Numerical Table Check
+  internal.actor.table=table(Internal.actor.data$victim.employee_count,Internal.actor.data$timeline.incident.year)
+  kable(internal.actor.table) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+
+  #Confidentiality Records Analysis
+
+  #Visualize counts of confidentiality.medical_records records by breach
+  ggplot(aes(x = confidentiality.medical_records ), data = Internal.actor.data) + geom_histogram(aes(fill = actor ), 
+  binwidth=100,colour="darkred", lwd=0.2) + geom_bar(fill = "darkred") 
+  scale_x_continuous(breaks=seq(0,max(Internal.actor.data$confidentiality.medical_records), 1))
+  
+    #Numerical Table Check
+
+    internal.actor.table.confidentiality.medical.records=table(Internal.actor.data$confidentiality.medical_records)
+    kable(internal.actor.table.confidentiality.medical.records) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+
+ 
+  #obtain min, max, mode values for PERT distribution analysis
+  min.pert=min(Internal.actor.data$confidentiality.medical_records)
+  max.pert=max(Internal.actor.data$confidentiality.medical_records)
+      #create mode function and then calculate mode
+      getmode <- function(v) {
+         uniqv <- unique(v)
+          uniqv[which.max(tabulate(match(v, uniqv)))]
+      }
+      mode.pert=getmode(Internal.actor.data$confidentiality.medical_records)
+  #set number of runs for analysis
+      num.run.pert=10000
+      
+  #Generate PERT Statistics 
+        #NOTE: This will generate a distribution with a level of randomness so exact values will be slightly different with          each "run" or "knit"
+      pert.confidentiality.medical_records=rpert(num.run.pert,min.pert,mode.pert,max.pert, shape=4)
+      pert.data=data.frame(pert.confidentiality.medical_records)
+      
+  #Plot Distribution of Pert Statistics
+      gg <- ggplot(pert.data, aes(x = pert.confidentiality.medical_records))
+      gg <- gg + geom_histogram(aes(y = ..density..),
+                          color="black", 
+                          fill = "white", 
+                          binwidth = 100)
+      gg <- gg + geom_density(fill = "darkred", alpha = 1/3)
+      gg <- gg + theme_bw()
+      gg
+      
+      #Generate Summary Statistics for Answer
+      mode.pert.result=getmode(pert.data$pert.confidentiality.medical_records)
+      confidence.interval.pert=quantile(pert.data$pert.confidentiality.medical_records, c(0.05,0.95)) 
+      print(mode.pert.result)
+      print(confidence.interval.pert)
+      
+      #Examine number of cases of confidentiality medical records over time and generate 90% confidence intervals
+          #Utilize Poisson Distribution Due to Count Data 
+      
+      confidentiality.medical_records.over.time=glm(confidentiality.medical_records~timeline.incident.year,data=Internal.actor.data, 
+      family=poisson)
+      summary(confidentiality.medical_records.over.time)
+      
+      df_ints <- Internal.actor.data%>% 
+      add_ci(confidentiality.medical_records.over.time, names = c("lcb", "ucb"), alpha = 0.1) %>%
+      add_pi(confidentiality.medical_records.over.time, names = c("lpb", "upb"), alpha = 0.1, nSims = 20000) %>%
+      print()
+
+      df_ints %>% 
+      ggplot(aes(x = timeline.incident.year, y = confidentiality.medical_records)) +
+      geom_point(size = 2) +
+      ggtitle("Poisson Regression", subtitle = "Model fit (black line), with prediction intervals (gray), confidence intervals (dark gray)") +
+      geom_line(aes(x = timeline.incident.year, y = pred), size = 1.2) + 
+      geom_ribbon(aes(ymin = lcb, ymax = ucb), alpha = 0.4) +
+      geom_ribbon(aes(ymin = lpb, ymax = upb), alpha = 0.2)
+      
+      #Outlier spotted, rerun analysis with no outlier data
+          #subset based on <10,000 records criteria based on visual inspection
+      Internal.actor.data.no.outlier=subset(Internal.actor.data, confidentiality.medical_records<10000)
+       confidentiality.medical_records.over.time.no.outlier=glm(confidentiality.medical_records~timeline.incident.year,data=Internal.actor.data.no.outlier, 
+      family=poisson)
+      summary(confidentiality.medical_records.over.time.no.outlier)
+      
+      df_ints <- Internal.actor.data.no.outlier%>% 
+      add_ci(confidentiality.medical_records.over.time, names = c("lcb", "ucb"), alpha = 0.1) %>%
+      add_pi(confidentiality.medical_records.over.time, names = c("lpb", "upb"), alpha = 0.1, nSims = 20000) %>%
+      print()
+
+      df_ints %>% 
+      ggplot(aes(x = timeline.incident.year, y = confidentiality.medical_records)) +
+      geom_point(size = 2) +
+      ggtitle("Poisson Regression", subtitle = "Model fit (black line), with prediction intervals (gray), confidence intervals (dark gray)") +
+      geom_line(aes(x = timeline.incident.year, y = pred), size = 1.2) + 
+      geom_ribbon(aes(ymin = lcb, ymax = ucb), alpha = 0.4) +
+      geom_ribbon(aes(ymin = lpb, ymax = upb), alpha = 0.2)
+      
+ #Total Records Analysis
+     
+       #Visualize counts of confidentiality.total_record_count records by breach
+  ggplot(aes(x = confidentiality.total_record_count ), data = Internal.actor.data) + geom_histogram(aes(fill = actor ), 
+  binwidth=100,colour="darkred", lwd=0.2) + geom_bar(fill = "darkred") 
+  scale_x_continuous(breaks=seq(0,max(Internal.actor.data$confidentiality.total_record_count), 1))
+  
+    #Numerical Table Check
+
+    internal.actor.table.confidentiality.total_record_count=table(Internal.actor.data$confidentiality.total_record_count)
+    kable(internal.actor.table.confidentiality.total_record_count) %>%
+          kable_styling(bootstrap_options = c("striped", "hover"))
+
+ 
+  #obtain min, max, mode values for PERT distribution analysis
+  min.pert.total=min(Internal.actor.data$confidentiality.total_record_count)
+  max.pert.total=max(Internal.actor.data$confidentiality.total_record_count)
+      #create mode function and then calculate mode
+      getmode <- function(v) {
+         uniqv <- unique(v)
+          uniqv[which.max(tabulate(match(v, uniqv)))]
+      }
+      mode.pert.total=getmode(Internal.actor.data$confidentiality.total_record_count)
+  #set number of runs for analysis
+      num.run.pert.total=10000
+      
+  #Generate PERT Statistics 
+       #NOTE: This will generate a distribution with a level of randomness so exact values will be slightly different with          each "run" or "knit".
+      pert.confidentiality.total_record_count=rpert(num.run.pert.total,min.pert.total,mode.pert.total,max.pert.total, shape=4)
+      pert.data.total=data.frame(pert.confidentiality.total_record_count)
+      
+  #Plot Distribution of Pert Statistics
+      gg.total <- ggplot(pert.data.total, aes(x = pert.confidentiality.total_record_count))
+      gg.total <- gg.total + geom_histogram(aes(y = ..density..),
+                          color="black", 
+                          fill = "white", 
+                          binwidth = 100)
+      gg.total <- gg.total + geom_density(fill = "darkred", alpha = 1/3)
+      gg.total <- gg.total + theme_bw()
+      gg.total
+      
+      #Generate Summary Statistics for Answer
+      mode.pert.result.total=getmode(pert.data.total$pert.confidentiality.total_record_count)
+      confidence.interval.pert.total=quantile(pert.data.total$pert.confidentiality.total_record_count, c(0.05,0.95))
+      print(mode.pert.result.total)
+      print(confidence.interval.pert.total)
+
+      
+```
+
+
+```{r Word Cloud}
+
+#Generate WordCloud from Text (This section takes a while to process)
+  #Edit summary text vector into corpus for wordle and generate table of frequencies
+ap.corpus <- Corpus(VectorSource(VCDB$summary))
+ap.corpus <- tm_map(ap.corpus, removePunctuation)
+ap.corpus <- tm_map(ap.corpus, content_transformer(tolower))
+ap.corpus <- tm_map(ap.corpus, function(x) removeWords(x, stopwords("english")))
+ap.corpus <- Corpus(VectorSource(ap.corpus))
+ap.tdm <- TermDocumentMatrix(ap.corpus)
+ap.m <- as.matrix(ap.tdm)
+ap.v <- sort(rowSums(ap.m),decreasing=TRUE)
+ap.d <- data.frame(word = names(ap.v),freq=ap.v)
+table(ap.d$freq)
+pal2 <- brewer.pal(8,"Dark2")
+  #Generate figure as PNG (Will save to working directory folder)
+png("wordcloud_packages.png", width=1280,height=800)
+wordcloud(ap.d$word,ap.d$freq, scale=c(8,.2),min.freq=3,
+          max.words=Inf, random.order=FALSE, rot.per=.15, colors=pal2)
+dev.off()
+```
